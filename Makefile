@@ -53,7 +53,13 @@ SRC_FILES += \
   $(SDK_ROOT)/modules/nrfx/drivers/src/prs/nrfx_prs.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_uart.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_uarte.c \
-  $(PROJ_DIR)/main.c \
+  $(PROJ_DIR)/main.cpp \
+  $(PROJ_DIR)/noir_irq.cpp \
+  $(PROJ_DIR)/noir_timer.cpp \
+  $(PROJ_DIR)/noir_radio.cpp \
+  $(PROJ_DIR)/noir_gpio.cpp \
+  $(PROJ_DIR)/noir_uart.cpp \
+  $(PROJ_DIR)/pcapng.cpp \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_Syscalls_GCC.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_printf.c \
@@ -64,6 +70,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components \
   $(SDK_ROOT)/components/libraries/cli \
   $(SDK_ROOT)/modules/nrfx/mdk \
+  $(SDK_ROOT)/modules/nrfx/drivers/src/prs/ \
   $(SDK_ROOT)/components/libraries/scheduler \
   $(SDK_ROOT)/components/libraries/queue \
   $(SDK_ROOT)/components/libraries/pwr_mgmt \
@@ -128,6 +135,7 @@ CFLAGS += -fno-builtin -fshort-enums
 
 # C++ flags common to all targets
 CXXFLAGS += $(OPT)
+CXXFLAGS += -std=c++17
 # Assembler flags common to all targets
 ASMFLAGS += -g3
 ASMFLAGS += -mcpu=cortex-m4
