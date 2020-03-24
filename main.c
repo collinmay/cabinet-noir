@@ -94,37 +94,10 @@ void uart_error_handle(app_uart_evt_t *event) {
   }
 }
 
-uint32_t noir_radio_receive() {
-  uint32_t result = 0;
-
-  NRF_RADIO->EVENTS_READY = 0U;
-  NRF_RADIO->EVENTS_END = 0U;
-  NRF_RADIO->EVENTS_DISABLED = 0U;
-  NRF_RADIO->TASKS_RXEN = 1U;
-
-  while(NRF_RADIO->EVENTS_READY == 0U) { }
-  printf("radio readied\r\n");
-
-  NRF_RADIO->TASKS_START = 1U;
-	
-  while(NRF_RADIO->EVENTS_ADDRESS == 0U) { }
-  printf("radio addressed\r\n");
-	
-  while(NRF_RADIO->EVENTS_END == 0U) { }
-  printf("radio ended\r\n");
-
-  NRF_RADIO->TASKS_DISABLE = 1U;
-
-  while(NRF_RADIO->EVENTS_DISABLED == 0U) { }
-  printf("radio disabled\r\n");
-
-  return result;
-}
-
 void noir_radio_configure(int channel) { // 0x1a
-  int alternate_packet_config = 0;
-  int packet_maxlen = 0xff;
+  int packet_maxlen = 0x46;
 
+  // cycle power to clear registers
   NRF_RADIO->POWER = 0;
   NRF_RADIO->POWER = 1;
 
@@ -137,29 +110,22 @@ void noir_radio_configure(int channel) { // 0x1a
 	
   NRF_RADIO->MODECNF0 = 1; // fast ramp up
 
-
-  NRF_RADIO->PCNF0 = alternate_packet_config ?
-    8 : // LFLEN: 8 bits, S0LEN: 0, S1LEN: 0, S1INCL: automatic, PLEN: 8-bit preamble
-    0x100108; // LFLEN: 8 bits, S0LEN: 1 byte, S1LEN: 0, S1INCL: always, PLEN: 8-bit preamble
-  
+  NRF_RADIO->PCNF0 = 0x100108; // LFLEN: 8 bits, S0LEN: 1 byte, S1LEN: 0, S1INCL: always, PLEN: 8-bit preamble
   NRF_RADIO->PCNF1 = packet_maxlen | 0x1040000; // STATLEN: 0, 4 byte base address, big endian, no whitening
 
-  NRF_RADIO->PREFIX0 = 0x83;
-  NRF_RADIO->BASE0 = 0x89bed600;
+  NRF_RADIO->PREFIX0 = 0xf0;
+  NRF_RADIO->BASE0 = 0xdfb2124b;
   NRF_RADIO->RXADDRESSES = 0xff;
   
   NRF_RADIO->FREQUENCY = channel;
   NRF_RADIO->MODE = (RADIO_MODE_MODE_Nrf_2Mbit << RADIO_MODE_MODE_Pos); // not sure why this doesn't exist in sdk
 
-  /*
   NRF_RADIO->TXPOWER = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
   NRF_RADIO->DACNF = 0; // no device address matching
   NRF_RADIO->SHORTS = 0;
   NRF_RADIO->CRCINIT = 0xffffff;
   NRF_RADIO->CRCCNF = 3;
   NRF_RADIO->CRCPOLY = 0x1108421;
-  NRF_RADIO->BASE1 = 0x98877665;
-  NRF_RADIO->BASE0 = 0xa1b2c3d4;*/
   
   //NRF_RADIO->INTENSET = 0x1a; // ADDRESS, END, DISABLED
   NRF_RADIO->INTENSET =
@@ -222,15 +188,14 @@ enum {
 };
 
 const int beacon_freqs[] = {
-			    /*	        4,  6 , 8,
-					10, 12, 14, 16, 18,
-					20, 22, 24,     28,
-					30, 32, 34, 36, 38,
-					40, 42, 44, 46, 48,
-					50, 52, 54, 56, 58,
-					60, 62, 64, 66, 68,
-					70, 72, 74, 76, 78*/
-			    2, 26, 80
+			    4,  6 , 8,
+			    10, 12, 14, 16, 18,
+			    20, 22, 24,     28,
+			    30, 32, 34, 36, 38,
+			    40, 42, 44, 46, 48,
+			    50, 52, 54, 56, 58,
+			    60, 62, 64, 66, 68,
+			    70, 72, 74, 76, 78
 };
 
 int main() {
@@ -238,15 +203,6 @@ int main() {
 
   /* Initialize clock */
   clock_initialization();
-
-  /*
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
-
-    err_code = NRF_LOG_INIT(NULL);
-    APP_ERROR_CHECK(err_code);
-	
-    err_code = bsp_init(BSP_INIT_LED, APP_TIMER_TICKS(100, APP_TIMER_PRESCALER), NULL);
-    APP_ERROR_CHECK(err_code);*/
 
   const app_uart_comm_params_t comm_params = {
 					      RX_PIN_NUMBER,
@@ -292,7 +248,6 @@ int main() {
     }
 
     if(NRF_RADIO->EVENTS_DEVMISS) {
-      printf("got devaddrmiss event\r\n");
       NRF_RADIO->EVENTS_DEVMISS = 0;
     }
 		
@@ -307,11 +262,11 @@ int main() {
 	freq_idx%= sizeof(beacon_freqs)/sizeof(beacon_freqs[0]);
 	//printf("pending frequency change to %d\r\n", freq);
 	NRF_RADIO->TASKS_DISABLE = 1;
-	printf(" coming down.\r\n");
+	printf("radio: coming down.\r\n");
 	break;
       case NOIR_IRQ_EVENT_RADIO_READY:
 	//printf("radio: READY\r\n");
-	printf("radio: up at %d MHz...", 2400 + beacon_freqs[freq_idx]);
+	printf("radio: up at %d MHz...\r\n", 2400 + beacon_freqs[freq_idx]);
 	fflush(stdout);
 	NRF_RADIO->TASKS_START = 1;
 	break;
@@ -323,6 +278,15 @@ int main() {
 	break;
       case NOIR_IRQ_EVENT_RADIO_END:
 	printf("radio: END\r\n");
+	for(int i = 0; i < sizeof(packet_buffer); i++) {
+	  printf(" %02x", (int) packet_buffer[i]);
+	  if(i % 8 == 7) {
+	    printf(" ");
+	  }
+	  if(i % 16 == 15) {
+	    printf("\r\n");
+	  }
+	}
 	break;
       case NOIR_IRQ_EVENT_RADIO_DISABLED:
 	//printf("radio: DISABLED\r\n");
@@ -335,23 +299,6 @@ int main() {
       }
     }
   }
-
-  /*
-    noir_radio_receive();
-
-    printf("got packet\r\n");
-		
-		
-    for(int i = 0; i < sizeof(packet_buffer); i++) {
-    printf(" %02x", (int) packet_buffer[i]);
-    if(i % 8 == 7) {
-    printf(" ");
-    }
-    if(i % 16 == 15) {
-    printf("\n");
-    }
-    }
-    }*/
 }
 
 void noir_irq_event_buffer_push(uint32_t event) {
