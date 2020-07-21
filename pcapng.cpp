@@ -16,23 +16,42 @@
 namespace noir {
 namespace pcapng {
 
-Writer::Writer(FILE *file) : file(file) {
+Writer::Writer(Sink &sink) : sink(sink) {
 }
 
 void Writer::OpenBlock(uint32_t block_type) {
 	memset(block_buffer, 0, sizeof(block_buffer));
 	block_buffer_head = 8;
 	((uint32_t*) block_buffer)[0] = block_type;
+	block_opened = true;
+}
+
+bool Writer::TryCommitBlock() {
+	if(!block_opened) {
+		return true;
+	}
+	if(!block_closed) {
+		block_buffer_head+= 4;
+		((uint32_t*) block_buffer)[1] = block_buffer_head;
+		*((uint32_t*) (block_buffer + block_buffer_head - 4)) = block_buffer_head;
+		block_closed = true;
+	}
+	if(sink.WriteAvailable() >= block_buffer_head) {
+		sink.Write((void*) block_buffer, block_buffer_head);
+		block_opened = false;
+		block_closed = false;
+		return true;
+	} else {
+		return false;
+	}
 }
 
 void Writer::CommitBlock() {
-	block_buffer_head+= 4;
-	((uint32_t*) block_buffer)[1] = block_buffer_head;
-	*((uint32_t*) (block_buffer + block_buffer_head - 4)) = block_buffer_head;
-	if(fwrite(block_buffer, 1, block_buffer_head, file) != block_buffer_head) {
-		noir::panic(PanicType::WriterIOError);
-	}
-	fflush(file);
+	while(!TryCommitBlock()) {}
+}
+
+bool Writer::IsReady() {
+	return !block_opened;
 }
 
 void Writer::AppendToBlock(const uint8_t *data, size_t size) {
@@ -60,6 +79,8 @@ void Writer::AppendOptions(Option *options) {
 }
 
 void Writer::WriteSHB(Option *options) {
+	CommitBlock();
+	
 	struct {
 		uint32_t bom;
 		uint16_t major;
@@ -76,12 +97,13 @@ void Writer::WriteSHB(Option *options) {
 
 	AppendToBlock((uint8_t*) &shb_head, sizeof(shb_head));
 	AppendOptions(options);
-	CommitBlock();
 
 	interface_id = 0; // local to section
 }
 
 uint32_t Writer::WriteIDB(uint16_t link_type, uint32_t snap_len, Option *options) {
+	CommitBlock();
+	
 	struct {
 		uint16_t link_type;
 		uint16_t reserved;
@@ -96,12 +118,13 @@ uint32_t Writer::WriteIDB(uint16_t link_type, uint32_t snap_len, Option *options
 
 	AppendToBlock((uint8_t*) &idb_head, sizeof(idb_head));
 	AppendOptions(options);
-	CommitBlock();
 
 	return interface_id++;
 }
 
 void Writer::WriteEPB(uint32_t if_id, uint64_t timestamp, uint32_t cap_length, uint32_t orig_length, const void *data, Option *options) {
+	CommitBlock();
+	
 	struct __attribute__((packed)) {
 		uint32_t if_id;
 		uint32_t ts_hi;
@@ -122,7 +145,6 @@ void Writer::WriteEPB(uint32_t if_id, uint64_t timestamp, uint32_t cap_length, u
 	AppendToBlock((uint8_t*) data, cap_length);
 	Align();
 	AppendOptions(options);
-	CommitBlock();
 }
 
 } // namespace pcapng

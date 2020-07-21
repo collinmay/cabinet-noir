@@ -1,5 +1,7 @@
 #pragma once
 
+#include<type_traits>
+
 #include "nrf_gpio.h"
 
 namespace noir {
@@ -9,7 +11,14 @@ void reset();
 
 class Output {
  public:
-	Output(int no);
+	enum class Flag {
+		None = 0,
+		HighDrive0 = 1,
+		HighDrive1 = 2,
+		HighDrive = 3,
+	};
+
+	Output(int no, Flag flags = Flag::None);
 	Output(Output &) = delete;
 	Output(Output &&) = default;
 	Output &operator=(Output &) = delete;
@@ -20,30 +29,50 @@ class Output {
 	void on();
 	void off();
 
-	void highdrive();
-
 	int no;
+	Flag flags;
 };
+
+inline Output::Flag operator|(Output::Flag a, Output::Flag b) {
+	using T = std::underlying_type<Output::Flag>::type;
+	return (Output::Flag) (((T) a) | ((T) b));
+}
+
+inline Output::Flag operator&(Output::Flag a, Output::Flag b) {
+	using T = std::underlying_type<Output::Flag>::type;
+	return (Output::Flag) (((T) a) & ((T) b));
+}
 
 class Input {
  public:
-	Input(int no);
+	enum class Flag {
+		None = 0,
+		Pullup = 1,
+		Pulldown = 2,
+	};
+		
+	Input(int no, Flag flags = Flag::None);
 	Input(Input &) = delete;
 	Input(Input &&) = default;
 	Input &operator=(Input &) = delete;
 	Input &operator=(Input &&) = default;
 
 	void init();
-	void pullup();
 	bool read();
 	
 	int no;
+	Flag flags;
 };
 
-const int PIN_LED1 = 17;
-const int PIN_LED2 = 18;
-const int PIN_LED3 = 19;
-const int PIN_LED4 = 20;
+inline Input::Flag operator|(Input::Flag a, Input::Flag b) {
+	using T = std::underlying_type<Input::Flag>::type;
+	return (Input::Flag) (((T) a) | ((T) b));
+}
+
+inline Input::Flag operator&(Input::Flag a, Input::Flag b) {
+	using T = std::underlying_type<Input::Flag>::type;
+	return (Input::Flag) (((T) a) & ((T) b));
+}
 
 } // namespace gpio
 } // namespace noir

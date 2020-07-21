@@ -136,6 +136,7 @@ CFLAGS += -fno-builtin -fshort-enums
 # C++ flags common to all targets
 CXXFLAGS += $(OPT)
 CXXFLAGS += -std=c++17
+CXXFLAGS += -fno-threadsafe-statics -fno-rtti
 # Assembler flags common to all targets
 ASMFLAGS += -g3
 ASMFLAGS += -mcpu=cortex-m4

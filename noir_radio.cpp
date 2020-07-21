@@ -8,7 +8,7 @@ namespace noir {
 namespace radio {
 
 void configure(int channel, void *packet_buffer) { // 0x1a
-	int packet_maxlen = 0xff;
+	int packet_maxlen = 0x46;
 
 	// cycle power to clear registers
 	NRF_RADIO->POWER = 0;
@@ -28,6 +28,7 @@ void configure(int channel, void *packet_buffer) { // 0x1a
 
 	NRF_RADIO->PREFIX0 = 0xf0;
 	NRF_RADIO->BASE0 = 0xdfb2124b;
+	NRF_RADIO->BASE1 = 0xdfb2124b;
 	NRF_RADIO->RXADDRESSES = 0xff;
 	
 	NRF_RADIO->FREQUENCY = channel;
@@ -35,7 +36,9 @@ void configure(int channel, void *packet_buffer) { // 0x1a
 
 	NRF_RADIO->TXPOWER = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
 	NRF_RADIO->DACNF = 0; // no device address matching
-	NRF_RADIO->SHORTS = 0;
+	NRF_RADIO->SHORTS =
+		RADIO_SHORTS_ADDRESS_RSSISTART_Msk |
+		RADIO_SHORTS_DISABLED_RSSISTOP_Msk;
 	NRF_RADIO->CRCINIT = 0xffffff;
 	NRF_RADIO->CRCCNF = 3;
 	NRF_RADIO->CRCPOLY = 0x1108421;
@@ -81,6 +84,10 @@ void start() {
 
 void stop() {
 	NRF_RADIO->TASKS_DISABLE = 1;
+}
+
+bool is_crc_ok() {
+	return NRF_RADIO->CRCSTATUS != 0;
 }
 
 extern "C" void RADIO_IRQHandler(void) {

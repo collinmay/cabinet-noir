@@ -3,12 +3,15 @@
 namespace noir {
 namespace gpio {
 
-Output::Output(int no) : no(no) {
+Output::Output(int no, Flag flags) : no(no), flags(flags) {
 	init();
 }
 
 void Output::init() {
-	NRF_P0->DIRSET = 1 << no;
+	NRF_P0->PIN_CNF[no] =
+		1 | // direction: output
+		((flags & Flag::HighDrive0) != Flag::None ? 1 : 0) << 8 |
+		((flags & Flag::HighDrive1) != Flag::None ? 1 : 0) << 9;
 }
 
 void Output::set(bool on) {
@@ -27,20 +30,15 @@ void Output::off() {
 	set(false);
 }
 
-void Output::highdrive() {
-	NRF_P0->PIN_CNF[no] = 0x30001; // high drive 0, high drive 1, output
-}
-
-Input::Input(int no) : no(no) {
+Input::Input(int no, Flag flags) : no(no), flags(flags) {
 	init();
 }
 
 void Input::init() {
-	NRF_P0->DIRCLR = 1 << no;
-}
-
-void Input::pullup() {
-	NRF_P0->PIN_CNF[no] = 0xc;
+	NRF_P0->PIN_CNF[no] =
+		0 | // direction: input
+		((flags & Flag::Pullup)   != Flag::None ? 3 : 0) << 2 |
+		((flags & Flag::Pulldown) != Flag::None ? 1 : 0) << 2;
 }
 
 bool Input::read() {
